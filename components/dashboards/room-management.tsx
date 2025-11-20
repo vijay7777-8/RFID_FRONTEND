@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RoomCard } from "@/components/ui/room-card"
 import { useHotelData } from "@/hooks/useHotelData"
+import { formatDistanceToNow } from "date-fns"
 
 import { 
   Building2, 
@@ -27,7 +28,8 @@ import {
   Eye,
   Settings,
   CheckCircle,
-  Zap
+  Zap,
+  Wifi
 } from "lucide-react"
 
 interface RoomManagementProps {
@@ -51,12 +53,19 @@ export function RoomManagement({ hotelId }: RoomManagementProps) {
     
     return rooms.map(room => {
       const status = room.status || "vacant"
+      // Use backend's computed connectionStatus and isOnline, with fallback
+      const connectionStatus = room.connectionStatus || (room.isOnline ? "online" : "offline")
+      const lastHeartbeat = room.lastHeartbeat ? new Date(room.lastHeartbeat) : null
+      const lastActivity = lastHeartbeat ? formatDistanceToNow(lastHeartbeat, { addSuffix: true }) : "No signal"
       return {
         id: room.id.toString(),
         number: room.number,
         type: "Standard", // Default type since it's not in the database
         floor: room.number.charAt(0), // Extract floor from room number
         occupancy: status,
+        connectionStatus,
+        lastHeartbeat: room.lastHeartbeat || null,
+        isOnline: room.isOnline !== undefined ? room.isOnline : (connectionStatus === "online"),
         occupant: room.occupantType ? {
           name: `${room.occupantType} User`,
           type: room.occupantType,
@@ -64,7 +73,7 @@ export function RoomManagement({ hotelId }: RoomManagementProps) {
           checkOut: "2024-01-07",
           avatar: "/placeholder.svg?height=40&width=40"
         } : undefined,
-        lastActivity: "Recently",
+        lastActivity,
         status,
       }
     })
@@ -128,6 +137,14 @@ export function RoomManagement({ hotelId }: RoomManagementProps) {
     
     return { total, occupied, vacant, maintenance }
   }, [transformedRooms])
+
+  const connectionStats = useMemo(() => {
+    const online = rooms.filter(room => room.connectionStatus === "online").length
+    return {
+      online,
+      offline: rooms.length - online,
+    }
+  }, [rooms])
 
   const powerStats = useMemo(() => {
     const totalRooms = rooms.length
@@ -244,6 +261,20 @@ export function RoomManagement({ hotelId }: RoomManagementProps) {
                 </p>
               </div>
               <Zap className="h-8 w-8 text-yellow-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Live Connections</p>
+                <p className="text-xs text-muted-foreground">
+                  {connectionStats.online} online · {connectionStats.offline} offline
+                </p>
+              </div>
+              <Wifi className={`h-8 w-8 ${connectionStats.offline ? "text-amber-500" : "text-emerald-500"}`} />
             </div>
           </CardContent>
         </Card>

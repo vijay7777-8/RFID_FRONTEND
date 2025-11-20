@@ -2,6 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { apiService, Hotel, Room, Activity, PowerReading, Settings } from '@/lib/api';
 import { socketService } from '@/lib/socket';
 
+const CONNECTION_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_CONNECTION_TIMEOUT_MS || 60000);
+
+const enhanceRoom = (room: Room): Room => {
+  const lastHeartbeatTimestamp = room.lastHeartbeat ? new Date(room.lastHeartbeat).getTime() : null;
+  const isOnline = !!(lastHeartbeatTimestamp && (Date.now() - lastHeartbeatTimestamp) <= CONNECTION_TIMEOUT_MS);
+
+  return {
+    ...room,
+    lastHeartbeat: room.lastHeartbeat || null,
+    connectionStatus: room.connectionStatus || (isOnline ? 'online' : 'offline'),
+    isOnline,
+  };
+};
+
 export function useHotelData(hotelId: string) {
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -25,7 +39,7 @@ export function useHotelData(hotelId: string) {
       ]);
 
       setHotel(hotelData);
-      setRooms(roomsData);
+      setRooms(roomsData.map(enhanceRoom));
       setActivities(activitiesData);
       setPowerReadings(powerData);
       setSettings(settingsData);
@@ -52,22 +66,32 @@ export function useHotelData(hotelId: string) {
     const handleRoomUpdate = (data: any) => {
       setRooms(prevRooms => {
         const updatedRooms = [...prevRooms];
-        const roomIndex = updatedRooms.findIndex(room => room.number === data.roomNum);
-        
+        const roomNumber = (data.roomNum || data.number || '').toString();
+        const roomIndex = updatedRooms.findIndex(room => room.number === roomNumber);
+        const lastHeartbeat = data.lastHeartbeat || new Date().toISOString();
+
         if (roomIndex !== -1) {
-          updatedRooms[roomIndex] = { ...updatedRooms[roomIndex], ...data };
-        } else {
-          // Add new room if it doesn't exist
-          updatedRooms.push({
-            hotelId,
-            id: parseInt(data.roomNum),
-            number: data.roomNum,
-            status: data.status || 'vacant',
-            hasMasterKey: data.hasMasterKey || false,
-            hasLowPower: data.hasLowPower || false,
-            powerStatus: data.powerStatus || 'off',
-            occupantType: data.occupantType || null,
+          updatedRooms[roomIndex] = enhanceRoom({
+            ...updatedRooms[roomIndex],
+            ...data,
+            number: roomNumber || updatedRooms[roomIndex].number,
+            lastHeartbeat,
           });
+        } else if (roomNumber) {
+          updatedRooms.push(
+            enhanceRoom({
+              hotelId,
+              id: Number(roomNumber) || Date.now(),
+              number: roomNumber,
+              status: data.status || 'vacant',
+              hasMasterKey: data.hasMasterKey || false,
+              hasLowPower: data.hasLowPower || false,
+              powerStatus: data.powerStatus || 'off',
+              occupantType: data.occupantType || null,
+              lastHeartbeat,
+              connectionStatus: data.connectionStatus,
+            })
+          );
         }
         
         // Update hotel occupancy stats
@@ -106,6 +130,14 @@ export function useHotelData(hotelId: string) {
       socketService.offActivityUpdate(hotelId, handleActivityUpdate);
     };
   }, [hotelId]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRooms(prevRooms => prevRooms.map(enhanceRoom));
+    }, CONNECTION_TIMEOUT_MS);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const updateHotel = useCallback(async (data: Partial<Hotel>) => {
     try {

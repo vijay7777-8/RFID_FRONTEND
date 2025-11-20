@@ -1,6 +1,6 @@
 // API service layer for connecting to live server
 function getApiBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL ;
+  const envUrl = process.env.NEXT_PUBLIC_API_URL||'' ;
 
   if (typeof window !== 'undefined') {
     try {
@@ -52,6 +52,9 @@ export interface Room {
   hasLowPower: boolean;
   powerStatus: string;
   occupantType: string | null;
+  lastHeartbeat?: string | null;
+  connectionStatus?: 'online' | 'offline';
+  isOnline?: boolean;
 }
 
 export interface Attendance {

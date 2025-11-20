@@ -42,6 +42,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Wifi,
+  WifiOff,
   Bell,
   Power,
   PowerOff,
@@ -383,6 +384,18 @@ export function HotelDashboard({ hotelId, onBackToHotels }: HotelDashboardProps)
     }
   }
 
+  const getConnectionIcon = (status?: string | null, isOnline?: boolean) => {
+    // Prioritize isOnline flag (most reliable), fallback to connectionStatus
+    const online = isOnline !== undefined 
+      ? isOnline 
+      : (status?.toLowerCase() === 'online')
+
+    if (online) {
+      return <Wifi className="h-4 w-4 text-emerald-500" />
+    }
+    return <WifiOff className="h-4 w-4 text-red-500" />
+  }
+
   const getCleaningThresholdSeconds = () => {
     return settings?.minCleaningDurationSeconds ?? 20 * 60
   }
@@ -635,6 +648,7 @@ export function HotelDashboard({ hotelId, onBackToHotels }: HotelDashboardProps)
                           <div className="flex items-center justify-center space-x-2 mb-3">
                             {room.occupantType && getOccupantTypeIcon(room.occupantType)}
                             {getPowerStatusIcon(room.powerStatus)}
+                            {getConnectionIcon(room.connectionStatus, room.isOnline)}
                             {room.hasMasterKey && (
                               <Crown className="h-4 w-4 text-yellow-600" />
                             )}
@@ -643,8 +657,6 @@ export function HotelDashboard({ hotelId, onBackToHotels }: HotelDashboardProps)
                             )}
                           </div>
                           
-                          {/* Status Dot */}
-                          <div className={`absolute top-3 right-3 w-3 h-3 ${getStatusColor()} rounded-full`}></div>
                         </div>
                       )
                     })}
@@ -716,6 +728,14 @@ export function HotelDashboard({ hotelId, onBackToHotels }: HotelDashboardProps)
                       <div className="flex items-center space-x-2">
                         <Crown className="h-3 w-3 text-yellow-600" />
                         <span className="text-xs">Master Key</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Wifi className="h-3 w-3 text-emerald-600" />
+                        <span className="text-xs">Live connection</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <WifiOff className="h-3 w-3 text-red-500" />
+                        <span className="text-xs">Device offline</span>
                       </div>
                     </div>
                   </div>

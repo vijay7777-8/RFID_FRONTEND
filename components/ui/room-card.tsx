@@ -5,7 +5,9 @@ import {
   User, 
   Shield, 
   Eye, 
-  Settings 
+  Settings,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,9 @@ interface RoomCardProps {
     floor: string;
     occupancy: string;
     lastActivity: string;
+    connectionStatus?: "online" | "offline";
+    lastHeartbeat?: string | null;
+    isOnline?: boolean;
     occupant?: {
       name: string;
       type: string;
@@ -78,6 +83,18 @@ export function RoomCard({ room, onClick }: RoomCardProps) {
     }
   };
 
+  const getConnectionIcon = () => {
+    // Prioritize isOnline flag (most reliable), fallback to connectionStatus
+    const isOnline = room.isOnline !== undefined 
+      ? room.isOnline 
+      : (room.connectionStatus?.toLowerCase() === 'online');
+    
+    if (isOnline) {
+      return <Wifi className="h-4 w-4 text-emerald-500" aria-label="Online" />;
+    }
+    return <WifiOff className="h-4 w-4 text-red-500" aria-label="Offline" />;
+  };
+
   return (
     <div className="relative h-full rounded-2xl border p-2 md:rounded-3xl md:p-3 hover:shadow-lg transition-shadow">
       <GlowingEffect
@@ -95,12 +112,9 @@ export function RoomCard({ room, onClick }: RoomCardProps) {
                 <div className="w-fit rounded-lg border border-gray-600 p-1.5">
                   <Bed className="h-3 w-3 text-black dark:text-neutral-400" />
                 </div>
-                <div className="flex items-center space-x-1.5 sm:space-x-2">
-                  <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${getOccupancyColor(room.occupancy)} flex-shrink-0`}></div>
-                  <Badge variant="outline" className="text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 flex-shrink-0">
-                    {getOccupancyText(room.occupancy)}
-                  </Badge>
-                </div>
+                <Badge variant="outline" className="text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 flex-shrink-0">
+                  {getOccupancyText(room.occupancy)}
+                </Badge>
               </div>
               <div className="space-y-1">
                 <h3 className="-tracking-4 pt-0.5 font-sans text-lg font-semibold text-balance text-black dark:text-white">
@@ -113,6 +127,11 @@ export function RoomCard({ room, onClick }: RoomCardProps) {
                 </div>
               </div>
             </div>
+
+          {/* Status Indicators */}
+          <div className="flex items-center justify-center space-x-2 text-gray-500 dark:text-gray-300 mb-2">
+            {getConnectionIcon()}
+          </div>
 
           {/* Content */}
           <div className="space-y-2">
